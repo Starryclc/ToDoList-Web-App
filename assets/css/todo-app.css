@@ -513,17 +513,32 @@
         }
         .task-item.completed .task-text { text-decoration: line-through; color: var(--text-secondary); }
         
-        .task-meta { display: flex; gap: 7px; font-size: 12px; color: var(--text-secondary); margin-top: 2px; align-items: center; flex-wrap: wrap; }
+        .task-meta { display: flex; gap: 7px; font-size: 12px; color: var(--text-secondary); margin-top: 2px; align-items: center; flex-wrap: wrap; line-height: 1.2; }
         .meta-tag { 
-            display: flex; 
+            display: inline-flex; 
             align-items: center; 
-            gap: 4px; }
+            gap: 4px;
+            white-space: nowrap; }
         .meta-list-steps { 
+            display: inline-flex;
+            align-items: center;
             font-size: 12px; 
             color: var(--text-secondary); 
+            white-space: nowrap;
         }
         .text-danger { color: var(--danger); font-weight: 500; }
-        .text-list-name { color: var(--text-secondary); background: #f3f2f1; padding: 2px 6px; border-radius: 3px; }
+        .text-list-name {
+            display: inline-flex;
+            align-items: center;
+            white-space: nowrap;
+            font-size: 11px;
+            color: #6f6a76;
+            background: #f2f3f5;
+            border: 1px solid #e2e4e8;
+            padding: 1px 6px;
+            border-radius: 999px;
+            line-height: 1.2;
+        }
         
         .task-note-view {
             padding: 0 12px 8px 32px; font-size: 13px; color: var(--text-secondary);
@@ -743,9 +758,15 @@
             background: var(--modal-bg); z-index: 1000;
             display: flex; align-items: center; justify-content: center;
             opacity: 0; pointer-events: none; transition: opacity 0.2s;
+            -webkit-backdrop-filter: blur(2px);
             backdrop-filter: blur(2px);
         }
         .modal-overlay.open { opacity: 1; pointer-events: auto; }
+        @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+            .modal-overlay {
+                background: rgba(0, 0, 0, 0.52);
+            }
+        }
         
         .modal {
             background: white; width: 450px; padding: 24px; border-radius: 8px;

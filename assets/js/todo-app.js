@@ -103,7 +103,9 @@
                     ];
                     inputs.forEach(el => {
                         el.addEventListener('click', (e) => {
-                            try { el.showPicker(); } catch(err) {}
+                            if (typeof el.showPicker === 'function') {
+                                try { el.showPicker(); } catch(err) {}
+                            }
                         });
                     });
                     [this.dom.inpDate, this.dom.inpTime].forEach((el) => {
@@ -318,10 +320,13 @@
                     this.dom.btnSortOpen.addEventListener('click', (e) => {
                         e.preventDefault();
                         const sel = this.dom.sortMode;
-                        try { sel.showPicker(); } catch (err) {
+                        if (typeof sel.showPicker === 'function') {
+                            try { sel.showPicker(); return; } catch (err) {}
+                        }
+                        try {
                             sel.focus();
                             sel.click();
-                        }
+                        } catch (err) {}
                     });
                     this.dom.btnClearSort.addEventListener('click', () => {
                         this.state.sortMode = 'due_asc';
@@ -597,6 +602,7 @@
                         this.autoResizeTextarea(this.dom.inpNote);
                     }
                     this.state.addingSteps = [];
+                    this.dom.inpStepInput.value = '';
                     this.renderAddingSteps();
                     this.resetDueInputs();
                     this.setTaskInputExpanded(false);
@@ -971,6 +977,18 @@
                     return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 ${weekdays[d.getDay()]}`;
                 },
 
+                formatDueDateShort(timestamp, withTime = false) {
+                    const d = new Date(timestamp);
+                    const year = String(d.getFullYear()).slice(-2);
+                    const month = d.getMonth() + 1;
+                    const day = d.getDate();
+                    const base = `${year}/${month}/${day}`;
+                    if (!withTime) return base;
+                    const hh = String(d.getHours()).padStart(2, '0');
+                    const mm = String(d.getMinutes()).padStart(2, '0');
+                    return `${base} ${hh}:${mm}`;
+                },
+
                 highlightText(text, keyword) {
                     const safe = this.escapeHtml(text || '');
                     if (!keyword) return safe;
@@ -1123,6 +1141,7 @@
                         
                         // Meta Tags Building
                         let metaHtml = '';
+                        let hasDueMeta = false;
                         
                         if (task.recurrence && task.recurrence !== 'none') {
                             const icon = '<svg style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>';
@@ -1134,12 +1153,26 @@
                         }
 
                         if (task.dueDate) {
-                            const dueRefTime = (task.completed && task.completedAt) ? task.completedAt : now;
-                            const dueObj = this.getRelativeTime(task.dueDate, task.hasTime, dueRefTime);
-                            const isOverdue = task.dueDate < dueRefTime;
-                            const colorClass = isOverdue ? 'text-danger' : '';
+                            let dueText = '';
+                            let colorClass = '';
+                            if (task.completed) {
+                                const completedRef = task.completedAt || now;
+                                const wasOverdueAtCompletion = task.dueDate < completedRef;
+                                if (wasOverdueAtCompletion) {
+                                    dueText = `超期 (${this.formatDueDateShort(task.dueDate, false)})`;
+                                    colorClass = 'text-danger';
+                                } else {
+                                    dueText = this.formatDueDateShort(task.dueDate, !!task.hasTime);
+                                }
+                            } else {
+                                const dueObj = this.getRelativeTime(task.dueDate, task.hasTime, now);
+                                dueText = dueObj.text;
+                                const isOverdue = task.dueDate < now;
+                                colorClass = isOverdue ? 'text-danger' : '';
+                            }
                             const clockIcon = `<svg class="${colorClass}" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>`;
-                            metaHtml += `<span class="meta-tag ${colorClass}">${clockIcon} ${dueObj.text}</span>`;
+                            metaHtml += `<span class="meta-tag ${colorClass}">${clockIcon} ${dueText}</span>`;
+                            hasDueMeta = true;
                         }
 
                         let listLabel = '';
@@ -1157,9 +1190,12 @@
                             const doneSteps = steps.filter(step => step.completed).length;
                             stepProgress = `${doneSteps}/${steps.length}`;
                         }
-                        if (listLabel || stepProgress) {
-                            const combinedMeta = [stepProgress, listLabel].filter(Boolean).join(' · ');
-                            metaHtml += `<span class="meta-list-steps">${this.escapeHtml(combinedMeta)}</span>`;
+                        if (stepProgress) {
+                            const stepMeta = hasDueMeta ? `· ${stepProgress}` : stepProgress;
+                            metaHtml += `<span class="meta-list-steps">${this.escapeHtml(stepMeta)}</span>`;
+                        }
+                        if (listLabel) {
+                            metaHtml += `<span class="text-list-name">${this.escapeHtml(listLabel)}</span>`;
                         }
 
                         const hasMeta = metaHtml !== '';
@@ -1219,7 +1255,7 @@
                 getRelativeTime(timestamp, hasTime, referenceTime = Date.now()) {
                     const diff = timestamp - referenceTime;
                     const d = new Date(timestamp);
-                    const datePart = `${d.getMonth()+1}/${d.getDate()}`;
+                    const datePart = this.formatDueDateShort(timestamp, false);
                     const timePart = `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
                     const dateStr = hasTime ? `${datePart} ${timePart}` : datePart;
 
