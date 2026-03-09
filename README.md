@@ -101,7 +101,6 @@
 - `index.html`：页面结构
 - `assets/css/todo-app.css`：样式文件
 - `assets/js/todo-app.js`：业务逻辑与数据处理
-- `docs/legacy-inline-backup.html`：历史版本备份
 
 ## 使用方式
 
