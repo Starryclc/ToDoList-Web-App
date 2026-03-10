@@ -259,12 +259,21 @@
                         this.dom.inpDate.focus();
                     });
 
-                    // Quick time buttons
+                    // Quick time buttons for add task
                     document.querySelectorAll('.btn-quick-time').forEach(btn => {
                         btn.addEventListener('click', (e) => {
                             e.preventDefault();
                             const timeType = btn.dataset.time;
                             this.setQuickTime(timeType);
+                        });
+                    });
+
+                    // Quick time buttons for edit modal
+                    document.querySelectorAll('.btn-quick-time-edit').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            const timeType = btn.dataset.time;
+                            this.setQuickTimeEdit(timeType);
                         });
                     });
                     this.dom.btnClearEditTimeX.addEventListener('click', (e) => {
@@ -500,45 +509,59 @@
 
                 // Set quick time based on button type
                 setQuickTime(timeType) {
+                    // Validate input
+                    const validTypes = ['end-of-day', 'tomorrow', 'this-friday', 'next-friday'];
+                    if (!validTypes.includes(timeType)) {
+                        console.warn('Unknown time type:', timeType);
+                        return;
+                    }
+
                     const now = this.getBeijingDate();
-                    const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+                    const currentDayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+                    const currentHour = now.getHours();
+                    const currentMinute = now.getMinutes();
                     let targetDate = new Date(now);
                     let targetTime = '17:30';
 
                     switch (timeType) {
                         case 'end-of-day':
-                            // Today 17:30
-                            targetDate = new Date(now);
+                            // Today 17:30, but if already past 17:30, set to tomorrow
+                            if (currentHour > 17 || (currentHour === 17 && currentMinute >= 30)) {
+                                targetDate.setDate(targetDate.getDate() + 1);
+                            }
                             break;
                         case 'tomorrow':
                             // Tomorrow 17:30
                             targetDate.setDate(targetDate.getDate() + 1);
                             break;
                         case 'this-friday':
-                            // This Friday or next Friday if weekend
-                            if (currentDay === 0) {
-                                // Sunday -> next Friday
+                            // This Friday (excluding today if already Friday)
+                            if (currentDayOfWeek === 0) {
+                                // Sunday -> this Friday (5 days later)
                                 targetDate.setDate(targetDate.getDate() + 5);
-                            } else if (currentDay === 6) {
-                                // Saturday -> next Friday
+                            } else if (currentDayOfWeek === 6) {
+                                // Saturday -> this Friday (6 days later)
                                 targetDate.setDate(targetDate.getDate() + 6);
+                            } else if (currentDayOfWeek === 5) {
+                                // Friday -> next Friday (7 days later, as "this Friday" has passed)
+                                targetDate.setDate(targetDate.getDate() + 7);
                             } else {
-                                // Monday(1) to Friday(5): days until Friday = 5 - currentDay
-                                const daysUntilFriday = 5 - currentDay;
+                                // Monday(1) to Thursday(4): days until Friday = 5 - currentDayOfWeek
+                                const daysUntilFriday = 5 - currentDayOfWeek;
                                 targetDate.setDate(targetDate.getDate() + daysUntilFriday);
                             }
                             break;
                         case 'next-friday':
-                            // Next Friday
-                            if (currentDay === 0) {
+                            // Next Friday (the Friday of next week)
+                            if (currentDayOfWeek === 0) {
                                 // Sunday -> next Friday (5 days)
                                 targetDate.setDate(targetDate.getDate() + 5);
-                            } else if (currentDay === 6) {
+                            } else if (currentDayOfWeek === 6) {
                                 // Saturday -> next Friday (6 days)
                                 targetDate.setDate(targetDate.getDate() + 6);
                             } else {
-                                // Monday(1) to Friday(5): days until next Friday = 5 - currentDay + 7
-                                const daysUntilNextFriday = 5 - currentDay + 7;
+                                // Monday(1) to Friday(5): days until next Friday = 5 - currentDayOfWeek + 7
+                                const daysUntilNextFriday = 5 - currentDayOfWeek + 7;
                                 targetDate.setDate(targetDate.getDate() + daysUntilNextFriday);
                             }
                             break;
@@ -546,6 +569,59 @@
 
                     this.dom.inpDate.value = this.formatBeijingDate(targetDate);
                     this.dom.inpTime.value = targetTime;
+                },
+
+                // Set quick time for edit modal
+                setQuickTimeEdit(timeType) {
+                    // Validate input
+                    const validTypes = ['end-of-day', 'tomorrow', 'this-friday', 'next-friday'];
+                    if (!validTypes.includes(timeType)) {
+                        console.warn('Unknown time type:', timeType);
+                        return;
+                    }
+
+                    const now = this.getBeijingDate();
+                    const currentDayOfWeek = now.getDay();
+                    const currentHour = now.getHours();
+                    const currentMinute = now.getMinutes();
+                    let targetDate = new Date(now);
+                    let targetTime = '17:30';
+
+                    switch (timeType) {
+                        case 'end-of-day':
+                            if (currentHour > 17 || (currentHour === 17 && currentMinute >= 30)) {
+                                targetDate.setDate(targetDate.getDate() + 1);
+                            }
+                            break;
+                        case 'tomorrow':
+                            targetDate.setDate(targetDate.getDate() + 1);
+                            break;
+                        case 'this-friday':
+                            if (currentDayOfWeek === 0) {
+                                targetDate.setDate(targetDate.getDate() + 5);
+                            } else if (currentDayOfWeek === 6) {
+                                targetDate.setDate(targetDate.getDate() + 6);
+                            } else if (currentDayOfWeek === 5) {
+                                targetDate.setDate(targetDate.getDate() + 7);
+                            } else {
+                                const daysUntilFriday = 5 - currentDayOfWeek;
+                                targetDate.setDate(targetDate.getDate() + daysUntilFriday);
+                            }
+                            break;
+                        case 'next-friday':
+                            if (currentDayOfWeek === 0) {
+                                targetDate.setDate(targetDate.getDate() + 5);
+                            } else if (currentDayOfWeek === 6) {
+                                targetDate.setDate(targetDate.getDate() + 6);
+                            } else {
+                                const daysUntilNextFriday = 5 - currentDayOfWeek + 7;
+                                targetDate.setDate(targetDate.getDate() + daysUntilNextFriday);
+                            }
+                            break;
+                    }
+
+                    this.dom.editInpDate.value = this.formatBeijingDate(targetDate);
+                    this.dom.editInpTime.value = targetTime;
                 },
 
                 toggleExpandedTask(id) {

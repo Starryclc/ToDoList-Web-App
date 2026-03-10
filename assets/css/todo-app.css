@@ -802,7 +802,7 @@
             flex-wrap: wrap;
             margin-top: 8px;
         }
-        .btn-quick-time {
+        .btn-quick-time, .btn-quick-time-edit {
             background: #f0f0f0;
             border: 1px solid var(--border);
             border-radius: 16px;
@@ -813,12 +813,12 @@
             transition: all 0.2s;
             font-family: inherit;
         }
-        .btn-quick-time:hover {
+        .btn-quick-time:hover, .btn-quick-time-edit:hover {
             background: var(--primary);
             color: white;
             border-color: var(--primary);
         }
-        .btn-quick-time:active {
+        .btn-quick-time:active, .btn-quick-time-edit:active {
             transform: scale(0.95);
         }
 
