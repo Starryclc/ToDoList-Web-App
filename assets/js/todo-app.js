@@ -596,6 +596,10 @@
                     this.dom.inpStepInput.value = '';
                     this.renderAddingSteps();
                     this.resetDueInputs();
+                    this.dom.inpRecurrence.value = 'none';
+                    if (this.dom.taskInputWrapper.contains(document.activeElement) && document.activeElement && typeof document.activeElement.blur === 'function') {
+                        document.activeElement.blur();
+                    }
                     this.setTaskInputExpanded(false);
                     this.renderAll(); 
                 },
