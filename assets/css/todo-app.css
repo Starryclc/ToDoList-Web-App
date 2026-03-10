@@ -800,7 +800,9 @@
             display: flex;
             gap: 8px;
             flex-wrap: wrap;
-            margin-top: 8px;
+            align-items: center;
+            min-height: 32px;
+            padding: 2px 8px;
         }
         .btn-quick-time, .btn-quick-time-edit {
             background: #f0f0f0;

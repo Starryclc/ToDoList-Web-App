@@ -705,7 +705,11 @@
 
                     if (listId === 'weekly-overview') return;
                     
-                    if (!text) { this.dom.inpText.focus(); return; }
+                    if (!text) { 
+                        this.dom.inpText.focus(); 
+                        // 保持输入框展开状态，让用户继续输入
+                        return; 
+                    }
 
                     let dueDate = null;
                     let hasTime = false;
