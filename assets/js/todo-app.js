@@ -49,7 +49,6 @@
                     taskList: document.getElementById('task-list'),
                     memoPage: document.getElementById('memo-page'),
                     memoList: document.getElementById('memo-list'),
-                    memoEmptyState: document.getElementById('memo-empty-state'),
                     taskInputWrapper: document.getElementById('task-input-wrapper'),
                     
                     inpText: document.getElementById('task-text'),
@@ -67,7 +66,6 @@
                     btnAdd: document.getElementById('btn-add-task'),
                     btnCollapseInput: document.getElementById('btn-collapse-input'),
                     btnNewMemo: document.getElementById('btn-new-memo'),
-                    btnCreateFirstMemo: document.getElementById('btn-create-first-memo'),
                     btnExpandMemo: document.getElementById('btn-expand-memo'),
                     btnDeleteMemo: document.getElementById('btn-delete-memo'),
                     btnCloseMemo: document.getElementById('btn-close-memo'),
@@ -380,9 +378,7 @@
                         this.renderTasks();
                     });
 
-                    [this.dom.btnNewMemo, this.dom.btnCreateFirstMemo].forEach((btn) => {
-                        btn.addEventListener('click', () => this.createMemo());
-                    });
+                    this.dom.btnNewMemo.addEventListener('click', () => this.createMemo());
                     this.dom.memoList.addEventListener('click', (e) => {
                         const item = e.target.closest('.memo-list-item');
                         if (!item) return;
@@ -1659,9 +1655,7 @@
                     const memos = this.getFilteredMemos();
 
                     this.dom.memoList.innerHTML = '';
-                    const shouldShowEmptyState = memos.length === 0;
-                    this.dom.memoEmptyState.classList.toggle('is-hidden', !shouldShowEmptyState);
-                    if (shouldShowEmptyState) {
+                    if (memos.length === 0) {
                         const empty = document.createElement('div');
                         empty.className = 'memo-empty-list';
                         empty.textContent = this.state.sidebarSearchKeyword

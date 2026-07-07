@@ -603,43 +603,6 @@
             font-size: 11px;
             color: #9a8fa8;
         }
-        .memo-empty-state {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 12px;
-            padding: 28px 20px;
-            margin-bottom: 12px;
-            border: 1px dashed #d7c8e7;
-            border-radius: 12px;
-            background: rgba(255,255,255,0.76);
-        }
-        .memo-empty-badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 28px;
-            padding: 0 12px;
-            border-radius: 999px;
-            background: #f3e7be;
-            color: #8b6416;
-            font-size: 11px;
-            letter-spacing: 0.16em;
-            font-weight: 700;
-        }
-        .memo-empty-state h3 {
-            margin: 0;
-            max-width: 560px;
-            font-size: 22px;
-            line-height: 1.25;
-            color: #3b2c4e;
-        }
-        .memo-empty-state p {
-            margin: 0;
-            max-width: 620px;
-            color: #6e647a;
-            line-height: 1.65;
-        }
         .memo-empty-list {
             padding: 18px;
             border: 1px dashed #d7c8e7;
@@ -1159,12 +1122,6 @@
             .memo-page {
                 padding-left: var(--main-side-gap);
                 padding-right: var(--main-side-gap);
-            }
-            .memo-empty-state {
-                padding: 24px 18px;
-            }
-            .memo-empty-state h3 {
-                font-size: 20px;
             }
             .memo-modal {
                 width: min(94vw, 760px);
