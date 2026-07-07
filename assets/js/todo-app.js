@@ -1146,14 +1146,14 @@
 
                     this.dom.editInpList.innerHTML = '';
                     this.db.lists.forEach(l => {
-                        if (l.id !== 'important' && l.id !== 'weekly-overview') {
+                        if (l.id !== 'important' && l.id !== 'weekly-overview' && l.id !== 'memos') {
                             const opt = document.createElement('option');
                             opt.value = l.id;
                             opt.textContent = l.title;
                             this.dom.editInpList.appendChild(opt);
                         }
                     });
-                    this.dom.editInpList.value = task.listId;
+                    this.dom.editInpList.value = task.listId === 'memos' ? 'tasks' : task.listId;
                     this.state.editingSteps = Array.isArray(task.steps) ? task.steps.map(s => ({ ...s })) : [];
                     this.state.editingStepEditId = null;
                     this.renderEditingSteps();
