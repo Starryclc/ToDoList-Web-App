@@ -42,6 +42,10 @@
                 </div>
             </div>
             <div class="header-actions">
+                <button id="btn-new-memo" class="btn-toggle-completed" title="新建">
+                    <svg style="width:16px;height:16px" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                    <span>新建</span>
+                </button>
                 <button id="btn-toggle-completed" class="btn-toggle-completed active" title="显示/隐藏已完成">
                     <svg style="width:16px;height:16px" viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
                     <span id="toggle-completed-text">隐藏已完成</span>
@@ -72,6 +76,16 @@
         <div class="task-container">
             <ul id="task-list" style="list-style:none; padding:0; margin:0"></ul>
         </div>
+
+        <section id="memo-page" class="memo-page">
+            <div id="memo-empty-state" class="memo-empty-state">
+                <div class="memo-empty-badge">MEMO</div>
+                <h3>这里可以放灵感、会议纪要、临时记录</h3>
+                <p>每条备忘录都会像任务卡片一样展示，点击卡片即可展开或编辑。</p>
+                <button id="btn-create-first-memo" class="btn-sm btn-primary">写第一条备忘录</button>
+            </div>
+            <ul id="memo-list" class="memo-card-list"></ul>
+        </section>
 
         <div class="input-wrapper collapsed" id="task-input-wrapper">
             <div class="input-main-group">
@@ -203,6 +217,27 @@
             <div class="modal-actions">
                 <button class="btn-sm btn-cancel">取消</button>
                 <button id="btn-save-list-edit" class="btn-sm btn-primary">保存</button>
+            </div>
+        </div>
+
+        <div class="modal memo-modal" id="modal-memo-edit" style="display:none">
+            <div class="memo-modal-topbar">
+                <div class="memo-modal-meta" id="memo-updated-at">刚刚更新</div>
+                <div class="memo-modal-icon-actions">
+                    <button id="btn-expand-memo" class="memo-icon-btn" type="button" title="放大查看">
+                        <svg viewBox="0 0 24 24"><path d="M4 14h2v4h4v2H4v-6zm14 4v-4h2v6h-6v-2h4zM4 4h6v2H6v4H4V4zm14 6V6h-4V4h6v6h-2z"/></svg>
+                    </button>
+                    <button id="btn-delete-memo" class="memo-icon-btn" type="button" title="删除">
+                        <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                    </button>
+                    <button id="btn-close-memo" class="memo-icon-btn" type="button" title="关闭">
+                        <svg viewBox="0 0 24 24"><path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.41L10.59 13.41 4.29 19.7 2.88 18.29 9.17 12 2.88 5.71 4.29 4.29l6.3 6.3 6.29-6.3z"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="memo-note-sheet">
+                <input type="text" id="memo-title-input" class="memo-note-title" placeholder="标题">
+                <textarea id="memo-content-input" class="memo-note-body" placeholder="开始输入内容..."></textarea>
             </div>
         </div>
     </div>

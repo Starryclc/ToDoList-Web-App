@@ -5,9 +5,11 @@
                         { id: 'my-day', title: '我的一天', icon: 'sun', type: 'system' },
                         { id: 'important', title: '重要', icon: 'star', type: 'system' },
                         { id: 'weekly-overview', title: '本周速览', icon: 'week', type: 'system' },
-                        { id: 'tasks', title: '全部任务', icon: 'home', type: 'system' }
+                        { id: 'tasks', title: '全部任务', icon: 'home', type: 'system' },
+                        { id: 'memos', title: '备忘录', icon: 'memo', type: 'system' }
                     ],
-                    tasks: [] 
+                    tasks: [],
+                    memos: []
                 },
                 state: {
                     currentListId: 'tasks',
@@ -30,7 +32,9 @@
                     showDetails: false,
                     sidebarSearchKeyword: '',
                     sortMode: 'default',
-                    skipNextAutoCollapse: false
+                    skipNextAutoCollapse: false,
+                    currentMemoId: null,
+                    isMemoModalExpanded: false
                 },
                 
                 dom: {
@@ -43,6 +47,9 @@
                     dateDisplay: document.getElementById('current-date'),
                     progressStats: document.getElementById('progress-stats'),
                     taskList: document.getElementById('task-list'),
+                    memoPage: document.getElementById('memo-page'),
+                    memoList: document.getElementById('memo-list'),
+                    memoEmptyState: document.getElementById('memo-empty-state'),
                     taskInputWrapper: document.getElementById('task-input-wrapper'),
                     
                     inpText: document.getElementById('task-text'),
@@ -59,6 +66,11 @@
                     inpList: document.getElementById('task-list-select'),
                     btnAdd: document.getElementById('btn-add-task'),
                     btnCollapseInput: document.getElementById('btn-collapse-input'),
+                    btnNewMemo: document.getElementById('btn-new-memo'),
+                    btnCreateFirstMemo: document.getElementById('btn-create-first-memo'),
+                    btnExpandMemo: document.getElementById('btn-expand-memo'),
+                    btnDeleteMemo: document.getElementById('btn-delete-memo'),
+                    btnCloseMemo: document.getElementById('btn-close-memo'),
                     btnToggleCompleted: document.getElementById('btn-toggle-completed'),
                     txtToggleCompleted: document.getElementById('toggle-completed-text'),
                     btnToggleNotes: document.getElementById('btn-toggle-notes'),
@@ -69,6 +81,7 @@
                     modalOverlay: document.getElementById('modal-overlay'),
                     modalTask: document.getElementById('modal-task-edit'),
                     modalList: document.getElementById('modal-list-edit'),
+                    modalMemo: document.getElementById('modal-memo-edit'),
                     btnsCancel: document.querySelectorAll('.btn-cancel'),
 
                     editInpText: document.getElementById('edit-task-text'),
@@ -85,6 +98,9 @@
 
                     editInpListName: document.getElementById('edit-list-name'),
                     btnSaveList: document.getElementById('btn-save-list-edit'),
+                    memoUpdatedAt: document.getElementById('memo-updated-at'),
+                    memoTitleInput: document.getElementById('memo-title-input'),
+                    memoContentInput: document.getElementById('memo-content-input'),
 
                     btnExport: document.getElementById('btn-export'),
                     btnImport: document.getElementById('btn-import'),
@@ -364,6 +380,24 @@
                         this.renderTasks();
                     });
 
+                    [this.dom.btnNewMemo, this.dom.btnCreateFirstMemo].forEach((btn) => {
+                        btn.addEventListener('click', () => this.createMemo());
+                    });
+                    this.dom.memoList.addEventListener('click', (e) => {
+                        const item = e.target.closest('.memo-list-item');
+                        if (!item) return;
+                        this.openMemoModal(parseInt(item.dataset.id, 10));
+                    });
+                    this.dom.memoTitleInput.addEventListener('input', () => this.updateCurrentMemo({
+                        title: this.dom.memoTitleInput.value
+                    }));
+                    this.dom.memoContentInput.addEventListener('input', () => this.updateCurrentMemo({
+                        content: this.dom.memoContentInput.value
+                    }));
+                    this.dom.btnExpandMemo.addEventListener('click', () => this.toggleMemoModalExpanded());
+                    this.dom.btnDeleteMemo.addEventListener('click', () => this.deleteCurrentMemo());
+                    this.dom.btnCloseMemo.addEventListener('click', () => this.closeModals());
+
                     this.dom.sidebarSearchInput.addEventListener('input', () => {
                         this.state.sidebarSearchKeyword = this.dom.sidebarSearchInput.value.trim().toLowerCase();
                         this.renderAll();
@@ -633,6 +667,126 @@
                     this.dom.inpTime.value = '';
                 },
 
+                isMemoView() {
+                    return this.state.currentListId === 'memos';
+                },
+
+                formatMemoTimestamp(timestamp) {
+                    const d = new Date(timestamp || Date.now());
+                    const hh = String(d.getHours()).padStart(2, '0');
+                    const mm = String(d.getMinutes()).padStart(2, '0');
+                    return `${d.getMonth() + 1}月${d.getDate()}日 ${hh}:${mm}`;
+                },
+
+                getMemoTitle(memo) {
+                    const title = (memo && memo.title ? memo.title : '').trim();
+                    return title || '无标题备忘录';
+                },
+
+                getMemoPreview(memo) {
+                    const text = `${memo.title || ''}\n${memo.content || ''}`.trim();
+                    return text || '这条备忘录还是空的，点进来写点什么吧。';
+                },
+
+                getFilteredMemos() {
+                    let memos = Array.isArray(this.db.memos) ? [...this.db.memos] : [];
+                    if (this.state.sidebarSearchKeyword) {
+                        const keyword = this.state.sidebarSearchKeyword;
+                        memos = memos.filter((memo) => {
+                            const haystack = `${memo.title || ''}\n${memo.content || ''}`.toLowerCase();
+                            return haystack.includes(keyword);
+                        });
+                    }
+                    return memos.sort((a, b) => (b.updatedAt || b.createdAt || b.id) - (a.updatedAt || a.createdAt || a.id));
+                },
+
+                ensureActiveMemo() {
+                    const memos = Array.isArray(this.db.memos) ? this.db.memos : [];
+                    if (!memos.length) {
+                        this.state.currentMemoId = null;
+                        return null;
+                    }
+                    const hasCurrent = memos.find((memo) => memo.id === this.state.currentMemoId);
+                    if (hasCurrent) return hasCurrent;
+                    const fallback = this.getFilteredMemos()[0] || memos[0];
+                    this.state.currentMemoId = fallback ? fallback.id : null;
+                    return fallback || null;
+                },
+
+                createMemo() {
+                    const nowTs = Date.now();
+                    const memo = {
+                        id: nowTs,
+                        title: '',
+                        content: '',
+                        createdAt: nowTs,
+                        updatedAt: nowTs
+                    };
+                    this.db.memos.unshift(memo);
+                    this.state.currentMemoId = memo.id;
+                    this.save();
+                    if (!this.isMemoView()) this.state.currentListId = 'memos';
+                    this.renderAll();
+                    this.openMemoModal(memo.id);
+                },
+
+                selectMemo(id) {
+                    this.state.currentMemoId = id;
+                    this.renderMemos();
+                },
+
+                openMemoModal(id) {
+                    this.state.currentMemoId = id;
+                    this.renderMemos();
+                    this.openModal('memo');
+                    this.syncMemoModalExpandedState();
+                    this.syncMemoModal();
+                    this.dom.memoTitleInput.focus();
+                },
+
+                toggleMemoModalExpanded() {
+                    this.state.isMemoModalExpanded = !this.state.isMemoModalExpanded;
+                    this.syncMemoModalExpandedState();
+                },
+
+                syncMemoModalExpandedState() {
+                    this.dom.modalMemo.classList.toggle('expanded', this.state.isMemoModalExpanded);
+                    this.dom.btnExpandMemo.title = this.state.isMemoModalExpanded ? '还原窗口' : '放大查看';
+                },
+
+                syncMemoModal() {
+                    const memo = this.db.memos.find((item) => item.id === this.state.currentMemoId);
+                    if (!memo) return;
+                    this.dom.memoUpdatedAt.textContent = `更新于 ${this.formatMemoTimestamp(memo.updatedAt || memo.createdAt || memo.id)}`;
+                    if (this.dom.memoTitleInput.value !== (memo.title || '')) {
+                        this.dom.memoTitleInput.value = memo.title || '';
+                    }
+                    if (this.dom.memoContentInput.value !== (memo.content || '')) {
+                        this.dom.memoContentInput.value = memo.content || '';
+                    }
+                },
+
+                updateCurrentMemo(patch) {
+                    const memo = this.db.memos.find((item) => item.id === this.state.currentMemoId);
+                    if (!memo) return;
+                    Object.assign(memo, patch, { updatedAt: Date.now() });
+                    this.save();
+                    this.renderMemos();
+                    this.syncMemoModal();
+                },
+
+                deleteCurrentMemo() {
+                    const memo = this.db.memos.find((item) => item.id === this.state.currentMemoId);
+                    if (!memo) return;
+                    const title = this.getMemoTitle(memo);
+                    if (!confirm(`确认删除“${title}”吗？`)) return;
+                    this.db.memos = this.db.memos.filter((item) => item.id !== memo.id);
+                    this.state.currentMemoId = null;
+                    this.save();
+                    this.closeModals();
+                    this.renderAll();
+                },
+
                 toggleExpandedTask(id) {
                     const idx = this.state.expandedTaskIds.indexOf(id);
                     if (idx > -1) this.state.expandedTaskIds.splice(idx, 1);
@@ -704,6 +858,7 @@
                     this.state.clickedTaskId = null;
                     this.state.listSwitchedPulse = true;
                     this.resetDueInputs();
+                    if (id === 'memos') this.ensureActiveMemo();
                     this.renderAll();
                 },
 
@@ -847,10 +1002,12 @@
                         case 'monthly': newDate.setMonth(oldDate.getMonth() + 1); break;
                     }
                     const nextDueDate = originalTask.dueDate ? newDate.getTime() : null;
+                    const shouldBeInMyDay = nextDueDate ? this.isSameDay(new Date(nextDueDate), new Date()) : false;
                     const newTask = {
                         ...originalTask,
                         id: Date.now(),
                         dueDate: nextDueDate,
+                        inMyDay: shouldBeInMyDay,
                         hasTime: originalTask.dueDate ? !!originalTask.hasTime : false,
                         steps: Array.isArray(originalTask.steps)
                             ? originalTask.steps.map(step => ({ ...step, completed: false }))
@@ -876,10 +1033,14 @@
                     this.dom.modalOverlay.classList.add('open');
                     this.dom.modalTask.style.display = type === 'task' ? 'flex' : 'none';
                     this.dom.modalList.style.display = type === 'list' ? 'flex' : 'none';
+                    this.dom.modalMemo.style.display = type === 'memo' ? 'flex' : 'none';
                 },
 
                 closeModals() {
                     this.dom.modalOverlay.classList.remove('open');
+                    this.dom.modalMemo.style.display = 'none';
+                    this.state.isMemoModalExpanded = false;
+                    this.syncMemoModalExpandedState();
                     this.state.editingTaskId = null;
                     this.state.editingListId = null;
                     this.state.editingSteps = [];
@@ -1047,8 +1208,21 @@
                     this.syncFilterControls();
                     this.updateToggleButtons();
                     this.updateSidebarSearchUI();
-                    this.renderTasks();
-                    this.dom.taskInputWrapper.style.display = this.state.currentListId === 'weekly-overview' ? 'none' : 'flex';
+                    if (this.isMemoView()) {
+                        this.dom.taskList.innerHTML = '';
+                        this.renderMemos();
+                    } else {
+                        this.renderTasks();
+                    }
+
+                    const hideTaskInput = this.state.currentListId === 'weekly-overview' || this.isMemoView();
+                    this.dom.taskInputWrapper.style.display = hideTaskInput ? 'none' : 'flex';
+                    this.dom.memoPage.style.display = this.isMemoView() ? 'block' : 'none';
+                    this.dom.taskList.parentElement.style.display = this.isMemoView() ? 'none' : 'block';
+                    document.querySelector('.filter-toolbar').style.display = this.isMemoView() ? 'none' : 'flex';
+                    this.dom.btnNewMemo.classList.toggle('is-hidden', !this.isMemoView());
+                    this.dom.btnToggleCompleted.classList.toggle('is-hidden', this.isMemoView());
+                    this.dom.btnToggleNotes.classList.toggle('is-hidden', this.isMemoView());
                 },
 
                 renderSidebar() {
@@ -1071,6 +1245,8 @@
                             count = this.db.tasks.filter(t => !t.completed && t.important).length;
                         } else if (list.id === 'weekly-overview') {
                             count = this.db.tasks.filter(t => this.isInWeeklyOverview(t)).length;
+                        } else if (list.id === 'memos') {
+                            count = this.db.memos.length;
                         } else if (list.id === 'my-day') {
                             count = this.db.tasks.filter(t => !t.completed && this.isInMyDay(t)).length;
                         } else {
@@ -1086,10 +1262,11 @@
                         if(list.id === 'my-day') svgPath = '<path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM1 13h3v-2H1v2zm10-9h2V1h-2v3zm7.24.84l1.79-1.79 1.41 1.41-1.79 1.79-1.41-1.41zM17.24 18.16l1.79 1.79 1.41-1.41-1.79-1.79-1.41 1.41zM20 13h3v-2h-3v2zm-9 9h2v-3h-2v3zm-7.24-3.16l-1.79 1.79 1.41 1.41 1.79-1.79-1.41-1.41zM12 6c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/>';
                         else if(list.id === 'important') svgPath = '<path d="M22 9.24l-7.19-.62L12 2 9.19 8.62 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.63-7.03L22 9.24zM12 15.4l-3.76 2.27 1-4.28-3.32-2.88 4.38-.38L12 6.1l1.7 4.03 4.38.38-3.32 2.88 1 4.28L12 15.4z"/>';
                         else if(list.id === 'weekly-overview') svgPath = '<path d="M19 4h-1V2h-2v2H8V2H6v2H5C3.9 4 3 4.9 3 6v13c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 15H5V10h14v9zm-2.7-7.7l-5 5a1 1 0 01-1.42 0l-2-2 1.42-1.42 1.29 1.29 4.29-4.29 1.42 1.42z"/>';
+                        else if(list.id === 'memos') svgPath = '<path d="M6 2h9l5 5v15a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm8 1.5V8h4.5M8 12h8v-1.5H8V12zm0 4h8v-1.5H8V16zm0 4h5v-1.5H8V20z"/>';
                         else if(list.id === 'tasks') svgPath = '<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>';
                         else svgPath = '<path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>';
 
-                        const iconClass = (list.id === 'my-day' || list.id === 'tasks' || list.id === 'important' || list.id === 'weekly-overview') ? (isActive ? 'icon-blue' : 'icon-gray') : 'icon-gray';
+                        const iconClass = (list.id === 'my-day' || list.id === 'tasks' || list.id === 'important' || list.id === 'weekly-overview' || list.id === 'memos') ? (isActive ? 'icon-blue' : 'icon-gray') : 'icon-gray';
                         const actionsHtml = !isSystem 
                             ? `<div class="nav-actions">
                                  <button class="btn-icon-hover edit-list" title="重命名">
@@ -1115,7 +1292,7 @@
 
                 renderHeader() {
                     if (this.state.sidebarSearchKeyword) {
-                        this.dom.viewTitle.textContent = '搜索结果';
+                        this.dom.viewTitle.textContent = this.isMemoView() ? '搜索备忘录' : '搜索结果';
                         this.dom.dateDisplay.textContent = '';
                         this.dom.progressStats.textContent = '';
                         return;
@@ -1130,6 +1307,8 @@
                         });
                     } else if (list.id === 'weekly-overview') {
                         this.dom.dateDisplay.textContent = this.formatCurrentWeekRangeText();
+                    } else if (list.id === 'memos') {
+                        this.dom.dateDisplay.textContent = `${this.db.memos.length} 条备忘录`;
                     } else {
                         this.dom.dateDisplay.textContent = '';
                     }
@@ -1140,13 +1319,13 @@
                     const select = this.dom.inpList;
                     select.innerHTML = '';
                     this.db.lists.forEach(list => {
-                        if (list.id === 'important' || list.id === 'weekly-overview') return;
+                        if (list.id === 'important' || list.id === 'weekly-overview' || list.id === 'memos') return;
                         const option = document.createElement('option');
                         option.value = list.id;
                         option.textContent = list.title;
                         select.appendChild(option);
                     });
-                    if (this.state.currentListId === 'important' || this.state.currentListId === 'weekly-overview') select.value = 'my-day';
+                    if (this.state.currentListId === 'important' || this.state.currentListId === 'weekly-overview' || this.state.currentListId === 'memos') select.value = 'my-day';
                     else select.value = this.state.currentListId;
                 },
 
@@ -1476,6 +1655,43 @@
                     if (shouldPulseOnListSwitch) this.state.listSwitchedPulse = false;
                 },
 
+                renderMemos() {
+                    const memos = this.getFilteredMemos();
+
+                    this.dom.memoList.innerHTML = '';
+                    const shouldShowEmptyState = memos.length === 0;
+                    this.dom.memoEmptyState.classList.toggle('is-hidden', !shouldShowEmptyState);
+                    if (shouldShowEmptyState) {
+                        const empty = document.createElement('div');
+                        empty.className = 'memo-empty-list';
+                        empty.textContent = this.state.sidebarSearchKeyword
+                            ? '没有找到匹配的备忘录，试试换个关键词。'
+                            : '还没有备忘录，点击右上角“新建”写一条。';
+                        this.dom.memoList.appendChild(empty);
+                    } else {
+                        const frag = document.createDocumentFragment();
+                        memos.forEach((memo) => {
+                            const item = document.createElement('li');
+                            item.className = 'memo-list-item';
+                            item.dataset.id = memo.id;
+                            item.innerHTML = `
+                                <button type="button" class="memo-card-button">
+                                    <div class="memo-card-body">
+                                        <div class="memo-card-title-row">
+                                            <span class="memo-card-dot"></span>
+                                            <p class="memo-list-title">${this.highlightText(this.getMemoTitle(memo), this.state.sidebarSearchKeyword)}</p>
+                                        </div>
+                                        <p class="memo-list-preview">${this.highlightText(this.getMemoPreview(memo), this.state.sidebarSearchKeyword)}</p>
+                                        <span class="memo-list-date">更新于 ${this.formatMemoTimestamp(memo.updatedAt || memo.createdAt || memo.id)}</span>
+                                    </div>
+                                </button>
+                            `;
+                            frag.appendChild(item);
+                        });
+                        this.dom.memoList.appendChild(frag);
+                    }
+                },
+
                 getRelativeTime(timestamp, hasTime, referenceTime = Date.now()) {
                     const diff = timestamp - referenceTime;
                     const d = new Date(timestamp);
@@ -1519,12 +1735,28 @@
                     });
                 },
 
+                normalizeMemos() {
+                    if (!Array.isArray(this.db.memos)) this.db.memos = [];
+                    this.db.memos = this.db.memos.map((memo) => {
+                        const createdAt = memo.createdAt || memo.updatedAt || memo.id || Date.now();
+                        const updatedAt = memo.updatedAt || createdAt;
+                        return {
+                            id: memo.id || createdAt,
+                            title: memo.title || '',
+                            content: memo.content || '',
+                            createdAt,
+                            updatedAt
+                        };
+                    });
+                },
+
                 ensureSystemLists() {
                     const required = [
                         { id: 'my-day', title: '我的一天', icon: 'sun', type: 'system' },
                         { id: 'important', title: '重要', icon: 'star', type: 'system' },
                         { id: 'weekly-overview', title: '本周速览', icon: 'week', type: 'system' },
-                        { id: 'tasks', title: '全部任务', icon: 'home', type: 'system' }
+                        { id: 'tasks', title: '全部任务', icon: 'home', type: 'system' },
+                        { id: 'memos', title: '备忘录', icon: 'memo', type: 'system' }
                     ];
                     const customLists = this.db.lists.filter(l => l.type !== 'system');
                     const systemLists = required.map(sys => {
@@ -1599,6 +1831,7 @@
                     if (data && data.lists && data.tasks) this.db = data;
                     this.ensureSystemLists();
                     this.normalizeTasks();
+                    this.normalizeMemos();
                 },
 
                 save() {
@@ -1692,6 +1925,7 @@
                                 this.db = data;
                                 this.ensureSystemLists();
                                 this.normalizeTasks();
+                                this.normalizeMemos();
                                 this.save();
                                 this.renderAll();
                                 alert('导入成功');
