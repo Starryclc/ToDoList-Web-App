@@ -648,11 +648,17 @@
                 },
 
                 applyAddQuickTime(mode) {
+                    if (mode === 'midday') {
+                        this.dom.inpTime.value = '12:00';
+                    }
                     if (mode === 'offwork') {
                         this.dom.inpTime.value = '17:30';
                     }
                 },
                 applyEditQuickTime(mode) {
+                    if (mode === 'midday') {
+                        this.dom.editInpTime.value = '12:00';
+                    }
                     if (mode === 'offwork') {
                         this.dom.editInpTime.value = '17:30';
                     }
@@ -891,6 +897,7 @@
                         note: note,
                         listId: listId || 'my-day',
                         inMyDay: (listId || 'my-day') === 'my-day',
+                        autoInMyDay: false,
                         important: false,
                         steps: this.state.addingSteps.map(s => ({ id: s.id, text: s.text, completed: false })),
                         dueDate: dueDate,
@@ -953,6 +960,7 @@
                     const task = this.db.tasks.find(t => t.id === id);
                     if (!task) return;
                     task.inMyDay = !this.isInMyDay(task);
+                    task.autoInMyDay = false;
                     this.save();
                     this.renderAll();
                 },
@@ -1004,6 +1012,7 @@
                         id: Date.now(),
                         dueDate: nextDueDate,
                         inMyDay: shouldBeInMyDay,
+                        autoInMyDay: shouldBeInMyDay,
                         hasTime: originalTask.dueDate ? !!originalTask.hasTime : false,
                         steps: Array.isArray(originalTask.steps)
                             ? originalTask.steps.map(step => ({ ...step, completed: false }))
@@ -1168,6 +1177,8 @@
 
                     const task = this.db.tasks.find(t => t.id === this.state.editingTaskId);
                     if (task) {
+                        const wasInMyDay = !!task.inMyDay;
+                        const wasAutoInMyDay = !!task.autoInMyDay;
                         task.text = newText;
                         task.note = this.dom.editInpNote.value; 
                         task.listId = this.dom.editInpList.value;
@@ -1188,6 +1199,17 @@
                         } else {
                             task.dueDate = null;
                             task.hasTime = false;
+                        }
+
+                        if (task.listId === 'my-day') {
+                            task.inMyDay = true;
+                            task.autoInMyDay = false;
+                        } else if (this.isDueToday(task)) {
+                            if (!task.inMyDay) task.inMyDay = true;
+                            if (!wasInMyDay || wasAutoInMyDay) task.autoInMyDay = true;
+                        } else if (wasAutoInMyDay) {
+                            task.inMyDay = false;
+                            task.autoInMyDay = false;
                         }
                         
                         this.save();
@@ -1384,6 +1406,7 @@
                         if (task.completed) return;
                         if (this.isDueToday(task) && !task.inMyDay) {
                             task.inMyDay = true;
+                            task.autoInMyDay = true;
                             changed = true;
                         }
                     });
@@ -1724,6 +1747,7 @@
                         if (t.addedAt === undefined) t.addedAt = t.created;
                         if (t.important === undefined) t.important = false;
                         if (t.inMyDay === undefined) t.inMyDay = t.listId === 'my-day';
+                        if (t.autoInMyDay === undefined) t.autoInMyDay = false;
                         if (t.completedAt === undefined) t.completedAt = t.completed ? t.created : null;
                         if (!Array.isArray(t.steps)) t.steps = [];
                     });
