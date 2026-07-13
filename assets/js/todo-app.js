@@ -902,6 +902,7 @@
                         steps: this.state.addingSteps.map(s => ({ id: s.id, text: s.text, completed: false })),
                         dueDate: dueDate,
                         hasTime: hasTime,
+                        recurrenceAnchorDay: dueDate ? new Date(dueDate).getDate() : null,
                         recurrence: recurrence,
                         completed: false,
                         completedAt: null,
@@ -941,7 +942,10 @@
                         task.steps = task.steps.map(step => ({ ...step, completed: false }));
                     }
                     if (!wasCompleted && task.completed && task.recurrence && task.recurrence !== 'none') {
-                        this.createNextRecurringTask(task);
+                        const existingNextTask = task.nextRecurringTaskId
+                            ? this.db.tasks.find(t => t.id === task.nextRecurringTaskId)
+                            : null;
+                        if (!existingNextTask) this.createNextRecurringTask(task);
                     }
                     this.save();
                     this.renderTasks();
@@ -999,18 +1003,22 @@
                     const baseTime = originalTask.dueDate || Date.now();
                     const oldDate = new Date(baseTime);
                     if (Number.isNaN(oldDate.getTime())) return;
-                    let newDate = new Date(oldDate);
-                    switch(originalTask.recurrence) {
-                        case 'daily': newDate.setDate(oldDate.getDate() + 1); break;
-                        case 'weekly': newDate.setDate(oldDate.getDate() + 7); break;
-                        case 'monthly': newDate.setMonth(oldDate.getMonth() + 1); break;
-                    }
+                    const recurrenceAnchorDay = originalTask.recurrenceAnchorDay || oldDate.getDate();
+                    const newDate = window.TodoRecurrence.getNextDueDate(
+                        oldDate,
+                        originalTask.recurrence,
+                        recurrenceAnchorDay
+                    );
+                    if (!newDate) return;
                     const nextDueDate = originalTask.dueDate ? newDate.getTime() : null;
                     const shouldBeInMyDay = nextDueDate ? this.isSameDay(new Date(nextDueDate), new Date()) : false;
+                    const nextTaskId = Date.now();
                     const newTask = {
                         ...originalTask,
-                        id: Date.now(),
+                        id: nextTaskId,
+                        nextRecurringTaskId: null,
                         dueDate: nextDueDate,
+                        recurrenceAnchorDay: nextDueDate ? recurrenceAnchorDay : null,
                         inMyDay: shouldBeInMyDay,
                         autoInMyDay: shouldBeInMyDay,
                         hasTime: originalTask.dueDate ? !!originalTask.hasTime : false,
@@ -1022,6 +1030,7 @@
                         created: Date.now(),
                         addedAt: Date.now()
                     };
+                    originalTask.nextRecurringTaskId = nextTaskId;
                     this.db.tasks.unshift(newTask);
                 },
 
@@ -1179,6 +1188,8 @@
                     if (task) {
                         const wasInMyDay = !!task.inMyDay;
                         const wasAutoInMyDay = !!task.autoInMyDay;
+                        const previousDueDate = task.dueDate;
+                        const previousAnchorDay = task.recurrenceAnchorDay;
                         task.text = newText;
                         task.note = this.dom.editInpNote.value; 
                         task.listId = this.dom.editInpList.value;
@@ -1200,6 +1211,11 @@
                             task.dueDate = null;
                             task.hasTime = false;
                         }
+                        const dueDateWasUnchanged = previousDueDate && task.dueDate
+                            && this.formatDateYmd(previousDueDate) === this.formatDateYmd(task.dueDate);
+                        task.recurrenceAnchorDay = dueDateWasUnchanged && previousAnchorDay
+                            ? previousAnchorDay
+                            : (task.dueDate ? new Date(task.dueDate).getDate() : null);
 
                         if (task.listId === 'my-day') {
                             task.inMyDay = true;
@@ -1568,6 +1584,7 @@
                             if(task.recurrence === 'daily') label = '每天';
                             if(task.recurrence === 'weekly') label = '每周';
                             if(task.recurrence === 'monthly') label = '每月';
+                            if(task.recurrence === 'quarterly') label = '每季';
                             metaHtml += `<span class="meta-tag" title="循环任务">${icon} ${label}</span>`;
                         }
 
@@ -1743,6 +1760,9 @@
                         if (t.recurrence === undefined) t.recurrence = 'none';
                         if (t.note === undefined) t.note = '';
                         if (t.hasTime === undefined) t.hasTime = false;
+                        if (t.recurrenceAnchorDay === undefined) {
+                            t.recurrenceAnchorDay = t.dueDate ? new Date(t.dueDate).getDate() : null;
+                        }
                         if (t.created === undefined) t.created = t.id || Date.now();
                         if (t.addedAt === undefined) t.addedAt = t.created;
                         if (t.important === undefined) t.important = false;
