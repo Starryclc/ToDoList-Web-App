@@ -409,13 +409,13 @@
             display: flex; align-items: center; background: var(--bg-white);
             border: 1px solid #d5c8e3; border-radius: 3px; padding: 2px 8px; font-size: 12px; gap: 4px;
         }
-        .control-group input[type="date"], .control-group input[type="time"] {
+        .control-group input[type="date"], .control-group .time-picker-input {
             border: none; background: transparent; color: var(--text-secondary);
             cursor: pointer; font-size: 12px; padding: 4px 2px; font-family: inherit;
             height: 24px; min-width: 20px;
         }
-        .control-group input[type="date"]:hover, .control-group input[type="time"]:hover { color: var(--primary); }
-        .control-group input[type="date"]:focus, .control-group input[type="time"]:focus {
+        .control-group input[type="date"]:hover, .control-group .time-picker-input:hover { color: var(--primary); }
+        .control-group input[type="date"]:focus, .control-group .time-picker-input:focus {
             background: transparent;
             outline: none;
         }
@@ -428,15 +428,16 @@
         .datetime-group input[type="date"] {
             min-width: 122px;
         }
-        .datetime-group input[type="time"] {
+        .datetime-group .time-picker-input {
             min-width: 58px;
+            width: 58px;
+            text-align: center;
         }
         .datetime-group .dt-mid-icon {
             margin: 0 2px 0 4px;
             flex-shrink: 0;
         }
-        .datetime-group input[type="date"]::-webkit-calendar-picker-indicator,
-        .datetime-group input[type="time"]::-webkit-calendar-picker-indicator {
+        .datetime-group input[type="date"]::-webkit-calendar-picker-indicator {
             opacity: 0;
             width: 0;
             margin: 0;
@@ -1023,6 +1024,90 @@
         }
         .time-input-row .form-input {
             flex: 1;
+        }
+
+        .time-picker-input[readonly] {
+            cursor: pointer;
+            caret-color: transparent;
+        }
+        .time-picker-popover {
+            position: fixed;
+            z-index: 2100;
+            width: 224px;
+            padding: 12px;
+            border: 1px solid #d7cae5;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.98);
+            box-shadow: 0 16px 38px rgba(67, 42, 91, 0.22), 0 2px 8px rgba(67, 42, 91, 0.1);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-4px) scale(0.98);
+            transform-origin: top left;
+            transition: opacity 120ms ease, transform 120ms ease, visibility 120ms;
+            -webkit-backdrop-filter: blur(14px);
+            backdrop-filter: blur(14px);
+        }
+        .time-picker-popover.open {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0) scale(1);
+        }
+        .time-picker-columns {
+            display: grid;
+            grid-template-columns: 1fr 16px 1fr;
+            align-items: start;
+        }
+        .time-picker-column {
+            min-width: 0;
+        }
+        .time-picker-column-label {
+            padding: 0 0 6px;
+            color: #94869f;
+            font-size: 10px;
+            text-align: center;
+        }
+        .time-picker-separator {
+            padding-top: 32px;
+            color: var(--primary);
+            font-size: 18px;
+            font-weight: 700;
+            text-align: center;
+        }
+        .time-picker-options {
+            height: min(232px, calc(100vh - 130px));
+            padding: 4px;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            scrollbar-width: thin;
+            scrollbar-color: #cdbbdd transparent;
+            border: 1px solid #ece4f3;
+            border-radius: 8px;
+            background: #faf8fc;
+        }
+        .time-picker-option {
+            display: block;
+            width: 100%;
+            min-height: 32px;
+            margin: 0 0 2px;
+            padding: 5px 8px;
+            border: 0;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font: 600 13px/1.2 "Segoe UI", "Helvetica Neue", sans-serif;
+            text-align: center;
+        }
+        .time-picker-option:last-child { margin-bottom: 0; }
+        .time-picker-option:hover,
+        .time-picker-option:focus-visible {
+            background: #eee6f5;
+            color: var(--primary);
+        }
+        .time-picker-option.selected {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 3px 8px rgba(123, 87, 160, 0.24);
         }
         
         .actions-group { display: flex; align-items: center; }

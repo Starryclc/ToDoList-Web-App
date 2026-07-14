@@ -34,7 +34,9 @@
                     sortMode: 'default',
                     skipNextAutoCollapse: false,
                     currentMemoId: null,
-                    isMemoModalExpanded: false
+                    isMemoModalExpanded: false,
+                    timePickerTarget: null,
+                    timePickerHour: null
                 },
                 
                 dom: {
@@ -103,12 +105,16 @@
                     btnExport: document.getElementById('btn-export'),
                     btnImport: document.getElementById('btn-import'),
                     btnArchive: document.getElementById('btn-archive'),
-                    fileInput: document.getElementById('importFile')
+                    fileInput: document.getElementById('importFile'),
+                    timePicker: document.getElementById('time-picker-popover'),
+                    timePickerHours: document.getElementById('time-picker-hours'),
+                    timePickerMinutes: document.getElementById('time-picker-minutes')
                 },
 
                 async init() {
                     this.bindEvents();
                     this.bindPickers();
+                    this.bindTimePicker();
                     this.bindNoteAutosize();
                     this.renderAddingSteps();
                     this.setTaskInputExpanded(false);
@@ -120,8 +126,7 @@
 
                 bindPickers() {
                     const inputs = [
-                        this.dom.inpDate, this.dom.inpTime,
-                        this.dom.editInpDate, this.dom.editInpTime
+                        this.dom.inpDate, this.dom.editInpDate
                     ];
                     inputs.forEach(el => {
                         el.addEventListener('click', (e) => {
@@ -150,15 +155,145 @@
                             }
                         });
                     });
-                    [this.dom.inpTime, this.dom.editInpTime].forEach((el) => {
-                        el.addEventListener('input', () => {
-                            // Commit selected time immediately without requiring Enter/click-out.
-                            setTimeout(() => el.blur(), 0);
+                },
+
+                bindTimePicker() {
+                    const createOption = (value, type) => {
+                        const button = document.createElement('button');
+                        button.type = 'button';
+                        button.className = 'time-picker-option';
+                        button.dataset.timeType = type;
+                        button.dataset.timeValue = String(value).padStart(2, '0');
+                        button.textContent = String(value).padStart(2, '0');
+                        button.setAttribute('role', 'option');
+                        button.setAttribute('aria-selected', 'false');
+                        if (type === 'hour') button.title = '双击直接选择整点';
+                        return button;
+                    };
+
+                    for (let hour = 0; hour < 24; hour += 1) {
+                        this.dom.timePickerHours.appendChild(createOption(hour, 'hour'));
+                    }
+                    for (let minute = 0; minute < 60; minute += 5) {
+                        this.dom.timePickerMinutes.appendChild(createOption(minute, 'minute'));
+                    }
+
+                    [this.dom.inpTime, this.dom.editInpTime].forEach((input) => {
+                        input.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            this.openTimePicker(input);
                         });
-                        el.addEventListener('change', () => {
-                            setTimeout(() => el.blur(), 0);
+                        input.addEventListener('keydown', (e) => {
+                            if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+                                e.preventDefault();
+                                this.openTimePicker(input);
+                            }
                         });
                     });
+
+                    this.dom.timePicker.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const option = e.target.closest('.time-picker-option');
+                        if (!option) return;
+                        if (option.dataset.timeType === 'hour') {
+                            this.state.timePickerHour = option.dataset.timeValue;
+                            this.syncTimePickerSelection();
+                            return;
+                        }
+                        if (!this.state.timePickerTarget) return;
+                        this.commitTimeSelection(option.dataset.timeValue);
+                    });
+
+                    this.dom.timePicker.addEventListener('dblclick', (e) => {
+                        e.stopPropagation();
+                        const option = e.target.closest('.time-picker-option[data-time-type="hour"]');
+                        if (!option || !this.state.timePickerTarget) return;
+                        this.state.timePickerHour = option.dataset.timeValue;
+                        this.syncTimePickerSelection();
+                        this.commitTimeSelection('00');
+                    });
+
+                    document.addEventListener('click', (e) => {
+                        if (e.target.closest('.time-picker-input, .time-picker-popover')) return;
+                        this.closeTimePicker();
+                    });
+                },
+
+                openTimePicker(input) {
+                    const match = /^(\d{2}):(\d{2})$/.exec(input.value);
+                    const now = new Date();
+                    this.state.timePickerTarget = input;
+                    this.state.timePickerHour = match ? match[1] : String(now.getHours()).padStart(2, '0');
+                    const selectedMinute = match ? match[2] : '00';
+
+                    this.dom.timePicker.dataset.selectedMinute = selectedMinute;
+                    this.syncTimePickerSelection();
+                    this.dom.timePicker.classList.add('open');
+                    this.dom.timePicker.setAttribute('aria-hidden', 'false');
+                    input.setAttribute('aria-expanded', 'true');
+
+                    const rect = input.getBoundingClientRect();
+                    const pickerWidth = this.dom.timePicker.offsetWidth || 224;
+                    const pickerHeight = this.dom.timePicker.offsetHeight || 302;
+                    const gap = 8;
+                    const left = Math.min(
+                        Math.max(gap, rect.left),
+                        Math.max(gap, window.innerWidth - pickerWidth - gap)
+                    );
+                    const placeAbove = rect.bottom + pickerHeight + gap > window.innerHeight
+                        && rect.top > pickerHeight + gap;
+                    const top = placeAbove
+                        ? Math.max(gap, rect.top - pickerHeight - gap)
+                        : Math.min(rect.bottom + gap, window.innerHeight - pickerHeight - gap);
+                    this.dom.timePicker.style.left = `${left}px`;
+                    this.dom.timePicker.style.top = `${Math.max(gap, top)}px`;
+
+                    requestAnimationFrame(() => {
+                        const selectedHourButton = this.dom.timePickerHours.querySelector('.selected');
+                        if (selectedHourButton) {
+                            this.dom.timePickerHours.scrollTop = selectedHourButton.offsetTop
+                                - (this.dom.timePickerHours.clientHeight / 2)
+                                + (selectedHourButton.offsetHeight / 2);
+                        }
+                        const selectedMinuteButton = this.dom.timePickerMinutes.querySelector('.selected');
+                        if (selectedMinuteButton) {
+                            this.dom.timePickerMinutes.scrollTop = selectedMinuteButton.offsetTop
+                                - (this.dom.timePickerMinutes.clientHeight / 2)
+                                + (selectedMinuteButton.offsetHeight / 2);
+                        }
+                    });
+                },
+
+                syncTimePickerSelection() {
+                    const selectedMinute = this.dom.timePicker.dataset.selectedMinute || '';
+                    this.dom.timePicker.querySelectorAll('.time-picker-option').forEach((option) => {
+                        const isSelected = option.dataset.timeType === 'hour'
+                            ? option.dataset.timeValue === this.state.timePickerHour
+                            : option.dataset.timeValue === selectedMinute;
+                        option.classList.toggle('selected', isSelected);
+                        option.setAttribute('aria-selected', String(isSelected));
+                    });
+                },
+
+                commitTimeSelection(minute) {
+                    if (!this.state.timePickerTarget) return;
+                    const hour = this.state.timePickerHour || '00';
+                    this.state.timePickerTarget.value = `${hour}:${minute}`;
+                    this.state.timePickerTarget.dispatchEvent(new Event('input', { bubbles: true }));
+                    this.state.timePickerTarget.dispatchEvent(new Event('change', { bubbles: true }));
+                    this.closeTimePicker();
+                },
+
+                closeTimePicker() {
+                    if (!this.dom.timePicker.classList.contains('open')) return;
+                    if (this.state.timePickerTarget) {
+                        this.state.timePickerTarget.setAttribute('aria-expanded', 'false');
+                    }
+                    this.dom.timePicker.classList.remove('open');
+                    this.dom.timePicker.setAttribute('aria-hidden', 'true');
+                    this.state.timePickerTarget = null;
+                    this.state.timePickerHour = null;
+                    this.dom.timePicker.dataset.selectedMinute = '';
                 },
 
                 autoResizeTextarea(el) {
@@ -497,7 +632,12 @@
                     });
                     
                     document.addEventListener('keydown', (e) => {
-                        if (e.key === 'Escape' && this.dom.modalOverlay.classList.contains('open')) this.closeModals();
+                        if (e.key !== 'Escape') return;
+                        if (this.dom.timePicker.classList.contains('open')) {
+                            this.closeTimePicker();
+                            return;
+                        }
+                        if (this.dom.modalOverlay.classList.contains('open')) this.closeModals();
                     });
                     this.dom.modalOverlay.addEventListener('click', (e) => {
                         if (e.target === this.dom.modalOverlay) this.closeModals();
@@ -1051,6 +1191,7 @@
                 },
 
                 closeModals() {
+                    this.closeTimePicker();
                     this.dom.modalOverlay.classList.remove('open');
                     this.dom.modalMemo.style.display = 'none';
                     this.state.isMemoModalExpanded = false;

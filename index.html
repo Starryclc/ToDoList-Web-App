@@ -102,7 +102,7 @@
                         <svg class="icon-gray" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>
                         <input type="date" id="task-date" title="截止日期" autocomplete="off">
                         <svg class="icon-gray dt-mid-icon" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zm.01 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13h-1.5v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
-                        <input type="time" id="task-time" title="具体时间 (可选)" autocomplete="off">
+                        <input type="text" id="task-time" class="time-picker-input" title="具体时间 (可选)" aria-label="具体时间 (可选)" placeholder="--:--" autocomplete="off" inputmode="none" readonly aria-haspopup="dialog" aria-expanded="false">
                         <button type="button" id="btn-clear-task-time-x" class="btn-clear-time-x" title="清除具体时间">×</button>
                     </div>
                     <div class="due-quick-inline" id="due-quick-inline">
@@ -166,7 +166,7 @@
                 <div class="form-group" style="flex:1">
                     <label>具体时间 (可选)</label>
                     <div class="time-input-row">
-                        <input type="time" id="edit-task-time" class="form-input">
+                        <input type="text" id="edit-task-time" class="form-input time-picker-input" aria-label="具体时间 (可选)" placeholder="--:--" inputmode="none" readonly aria-haspopup="dialog" aria-expanded="false">
                         <button type="button" id="btn-clear-edit-time-x" class="btn-clear-time-x" title="清除具体时间">×</button>
                     </div>
                 </div>
@@ -237,6 +237,20 @@
                 <input type="text" id="memo-title-input" class="memo-note-title" placeholder="标题">
                 <textarea id="memo-content-input" class="memo-note-body" placeholder="开始输入内容..."></textarea>
             </div>
+        </div>
+    </div>
+
+    <div id="time-picker-popover" class="time-picker-popover" role="dialog" aria-label="选择具体时间" aria-hidden="true">
+        <div class="time-picker-columns">
+            <section class="time-picker-column" aria-label="小时">
+                <div class="time-picker-column-label">小时</div>
+                <div id="time-picker-hours" class="time-picker-options" role="listbox" aria-label="小时选项"></div>
+            </section>
+            <div class="time-picker-separator" aria-hidden="true">:</div>
+            <section class="time-picker-column" aria-label="分钟">
+                <div class="time-picker-column-label">分钟</div>
+                <div id="time-picker-minutes" class="time-picker-options" role="listbox" aria-label="分钟选项"></div>
+            </section>
         </div>
     </div>
 
