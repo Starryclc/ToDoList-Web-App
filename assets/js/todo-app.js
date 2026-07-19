@@ -184,6 +184,9 @@
                             this.openTimePicker(input);
                         });
                         input.addEventListener('keydown', (e) => {
+                            // Shift+Enter belongs to the add-task shortcut. Let it
+                            // bubble to taskInputWrapper instead of reopening the picker.
+                            if (e.key === 'Enter' && e.shiftKey) return;
                             if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
                                 e.preventDefault();
                                 this.openTimePicker(input);
@@ -277,11 +280,16 @@
 
                 commitTimeSelection(minute) {
                     if (!this.state.timePickerTarget) return;
+                    const target = this.state.timePickerTarget;
                     const hour = this.state.timePickerHour || '00';
-                    this.state.timePickerTarget.value = `${hour}:${minute}`;
-                    this.state.timePickerTarget.dispatchEvent(new Event('input', { bubbles: true }));
-                    this.state.timePickerTarget.dispatchEvent(new Event('change', { bubbles: true }));
+                    target.value = `${hour}:${minute}`;
+                    target.dispatchEvent(new Event('input', { bubbles: true }));
+                    target.dispatchEvent(new Event('change', { bubbles: true }));
                     this.closeTimePicker();
+                    // The popover lives outside the add-task wrapper. Without
+                    // restoring focus, keyboard events remain on its option button
+                    // and the wrapper cannot receive Shift+Enter.
+                    target.focus({ preventScroll: true });
                 },
 
                 closeTimePicker() {
@@ -522,6 +530,11 @@
                     this.dom.memoTitleInput.addEventListener('input', () => this.updateCurrentMemo({
                         title: this.dom.memoTitleInput.value
                     }));
+                    this.dom.memoTitleInput.addEventListener('keydown', (e) => {
+                        if (e.key !== 'Enter' || e.isComposing) return;
+                        e.preventDefault();
+                        this.dom.memoContentInput.focus();
+                    });
                     this.dom.memoContentInput.addEventListener('input', () => this.updateCurrentMemo({
                         content: this.dom.memoContentInput.value
                     }));
@@ -826,8 +839,8 @@
                 },
 
                 getMemoPreview(memo) {
-                    const text = `${memo.title || ''}\n${memo.content || ''}`.trim();
-                    return text || '这条备忘录还是空的，点进来写点什么吧。';
+                    const content = (memo && memo.content ? memo.content : '').trim();
+                    return content || '暂无正文';
                 },
 
                 getFilteredMemos() {
